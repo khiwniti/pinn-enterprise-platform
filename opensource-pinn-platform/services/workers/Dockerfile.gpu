@@ -1,0 +1,34 @@
+FROM tensorflow/tensorflow:2.15.0-gpu
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    gfortran \
+    libopenblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1000 worker && chown -R worker:worker /app
+USER worker
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV WORKER_TYPE=gpu
+ENV CUDA_VISIBLE_DEVICES=0
+
+# Run Celery worker
+CMD ["celery", "-A", "celery_app", "worker", "--loglevel=info", "--concurrency=1"]

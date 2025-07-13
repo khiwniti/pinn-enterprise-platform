@@ -1,0 +1,75 @@
+name = "pinn-enterprise-api"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+account_id = "5adf62efd6cf179a8939c211b155e229"
+
+[env.production]
+name = "pinn-enterprise-api"
+zone_id = "11888a0ee8a4d631a3b430bd1b909674"
+route = { pattern = "api.ensimu.space/*", zone_id = "11888a0ee8a4d631a3b430bd1b909674" }
+
+[env.staging]
+name = "pinn-enterprise-api-staging"
+zone_id = "11888a0ee8a4d631a3b430bd1b909674"
+route = { pattern = "staging-api.ensimu.space/*", zone_id = "11888a0ee8a4d631a3b430bd1b909674" }
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+API_VERSION = "2.0.0"
+CORS_ORIGIN = "*"
+MAX_REQUEST_SIZE = "10MB"
+RATE_LIMIT_REQUESTS = "1000"
+RATE_LIMIT_WINDOW = "3600"
+
+# KV Namespaces for data storage
+[[kv_namespaces]]
+binding = "WORKFLOWS_KV"
+id = "workflows_storage"
+preview_id = "workflows_storage_preview"
+
+[[kv_namespaces]]
+binding = "RESULTS_KV"
+id = "results_storage"
+preview_id = "results_storage_preview"
+
+[[kv_namespaces]]
+binding = "USECASES_KV"
+id = "usecases_storage"
+preview_id = "usecases_storage_preview"
+
+# Durable Objects for real-time features
+[[durable_objects.bindings]]
+name = "WEBSOCKET_MANAGER"
+class_name = "WebSocketManager"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["WebSocketManager"]
+
+# R2 Storage for large files
+[[r2_buckets]]
+binding = "MODELS_BUCKET"
+bucket_name = "pinn-models-storage"
+
+[[r2_buckets]]
+binding = "VISUALIZATIONS_BUCKET"
+bucket_name = "pinn-visualizations"
+
+# Analytics and monitoring
+[analytics_engine_datasets]
+binding = "ANALYTICS"
+
+# Custom domains
+[route]
+pattern = "api.ensimu.space/*"
+zone_name = "ensimu.space"
+
+# Build configuration
+[build]
+command = "npm run build"
+cwd = "."
+
+# Node.js compatibility
+node_compat = true

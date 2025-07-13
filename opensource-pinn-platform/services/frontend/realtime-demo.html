@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PINN Real-Time Workflow Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .metric-card {
+            transition: all 0.3s ease-in-out;
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">🧮 PINN Real-Time Workflow</h1>
+                    <p class="text-gray-600 mt-2">Physics-Informed Neural Networks with Live Updates</p>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="startBtn" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2">
+                        <span>▶️</span>
+                        <span>Start Simulation</span>
+                    </button>
+                    <button id="connectBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+                        <span>🔌</span>
+                        <span>Connect WebSocket</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div class="flex items-center space-x-3">
+                <div id="connectionStatus" class="w-3 h-3 rounded-full bg-red-500"></div>
+                <span id="connectionText" class="text-gray-700">Disconnected</span>
+                <span id="connectionId" class="text-sm text-gray-500"></span>
+            </div>
+        </div>
+
+        <!-- Workflow Progress -->
+        <div id="workflowContainer" class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Workflow Progress</h2>
+            <div id="workflowSteps" class="space-y-4">
+                <!-- Steps will be populated dynamically -->
+            </div>
+        </div>
+
+        <!-- Real-time Metrics -->
+        <div id="metricsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 hidden">
+            <div class="metric-card bg-white rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Accuracy</p>
+                        <p id="accuracyValue" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-green-100 text-green-700">
+                        📈
+                    </div>
+                </div>
+            </div>
+            
+            <div class="metric-card bg-white rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Loss</p>
+                        <p id="lossValue" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-blue-100 text-blue-700">
+                        📊
+                    </div>
+                </div>
+            </div>
+            
+            <div class="metric-card bg-white rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Convergence</p>
+                        <p id="convergenceValue" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-purple-100 text-purple-700">
+                        ⚡
+                    </div>
+                </div>
+            </div>
+            
+            <div class="metric-card bg-white rounded-lg shadow-sm p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">Training Time</p>
+                        <p id="trainingTimeValue" class="text-2xl font-bold text-gray-900">--</p>
+                    </div>
+                    <div class="p-3 rounded-lg bg-orange-100 text-orange-700">
+                        ⏱️
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Log -->
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <h2 class="text-xl font-semibold mb-4">Live Updates</h2>
+            <div id="liveLog" class="bg-gray-900 text-green-400 p-4 rounded-lg h-64 overflow-y-auto font-mono text-sm">
+                <div class="text-gray-500">Waiting for connection...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentWorkflowId = null;
+        
+        const elements = {
+            connectBtn: document.getElementById('connectBtn'),
+            startBtn: document.getElementById('startBtn'),
+            connectionStatus: document.getElementById('connectionStatus'),
+            connectionText: document.getElementById('connectionText'),
+            connectionId: document.getElementById('connectionId'),
+            workflowContainer: document.getElementById('workflowContainer'),
+            workflowSteps: document.getElementById('workflowSteps'),
+            metricsContainer: document.getElementById('metricsContainer'),
+            liveLog: document.getElementById('liveLog'),
+            accuracyValue: document.getElementById('accuracyValue'),
+            lossValue: document.getElementById('lossValue'),
+            convergenceValue: document.getElementById('convergenceValue'),
+            trainingTimeValue: document.getElementById('trainingTimeValue')
+        };
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'text-red-400' : 
+                         type === 'success' ? 'text-green-400' : 
+                         type === 'warning' ? 'text-yellow-400' : 'text-blue-400';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = color;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            
+            elements.liveLog.appendChild(logEntry);
+            elements.liveLog.scrollTop = elements.liveLog.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('Already connected to WebSocket', 'warning');
+                return;
+            }
+
+            log('Connecting to WebSocket...', 'info');
+            ws = new WebSocket('ws://localhost:8000/ws/workflow');
+
+            ws.onopen = function(event) {
+                log('✅ WebSocket connected successfully', 'success');
+                elements.connectionStatus.className = 'w-3 h-3 rounded-full bg-green-500';
+                elements.connectionText.textContent = 'Connected';
+                elements.connectBtn.textContent = '🔌 Connected';
+                elements.connectBtn.disabled = true;
+                elements.startBtn.disabled = false;
+            };
+
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = function(event) {
+                log('❌ WebSocket disconnected', 'error');
+                elements.connectionStatus.className = 'w-3 h-3 rounded-full bg-red-500';
+                elements.connectionText.textContent = 'Disconnected';
+                elements.connectBtn.textContent = '🔌 Connect WebSocket';
+                elements.connectBtn.disabled = false;
+                elements.startBtn.disabled = true;
+            };
+
+            ws.onerror = function(error) {
+                log('❌ WebSocket error: ' + error, 'error');
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            log(`📨 Received: ${data.type}`, 'info');
+
+            switch (data.type) {
+                case 'connection_established':
+                    elements.connectionId.textContent = `ID: ${data.connection_id}`;
+                    break;
+
+                case 'subscription_confirmed':
+                    log(`✅ Subscribed to workflow: ${data.workflow_id}`, 'success');
+                    elements.workflowContainer.classList.remove('hidden');
+                    elements.metricsContainer.classList.remove('hidden');
+                    break;
+
+                case 'step_started':
+                    updateWorkflowStep(data.payload);
+                    break;
+
+                case 'workflow_progress':
+                    updateStepProgress(data.payload);
+                    break;
+
+                case 'training_metrics':
+                    updateMetrics(data.payload.metrics);
+                    break;
+
+                case 'step_completed':
+                    completeStep(data.payload);
+                    break;
+
+                case 'visualization_ready':
+                    log(`🎨 Visualization ready: ${data.payload.visualization_url}`, 'success');
+                    break;
+
+                default:
+                    log(`Unknown message type: ${data.type}`, 'warning');
+            }
+        }
+
+        function updateWorkflowStep(payload) {
+            const stepElement = document.getElementById(`step-${payload.step_id}`) || createStepElement(payload);
+            stepElement.querySelector('.step-status').className = 'w-8 h-8 rounded-full flex items-center justify-center bg-blue-500 text-white pulse-animation';
+            stepElement.querySelector('.step-status').innerHTML = '⚡';
+        }
+
+        function createStepElement(payload) {
+            const stepElement = document.createElement('div');
+            stepElement.id = `step-${payload.step_id}`;
+            stepElement.className = 'flex items-center space-x-4 p-4 rounded-lg border border-gray-200';
+            stepElement.innerHTML = `
+                <div class="step-status w-8 h-8 rounded-full flex items-center justify-center bg-gray-300 text-gray-600">
+                    ${payload.step_index + 1}
+                </div>
+                <div class="flex-1">
+                    <h3 class="font-medium">${payload.step_name}</h3>
+                    <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div class="step-progress h-2 rounded-full bg-blue-500 progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span class="progress-text">0% complete</span>
+                        <span class="status-text">Pending</span>
+                    </div>
+                </div>
+            `;
+            elements.workflowSteps.appendChild(stepElement);
+            return stepElement;
+        }
+
+        function updateStepProgress(payload) {
+            const stepElement = document.getElementById(`step-${payload.step_index}`);
+            if (stepElement) {
+                const progressBar = stepElement.querySelector('.step-progress');
+                const progressText = stepElement.querySelector('.progress-text');
+                const statusText = stepElement.querySelector('.status-text');
+                
+                progressBar.style.width = `${payload.progress}%`;
+                progressText.textContent = `${payload.progress}% complete`;
+                statusText.textContent = payload.progress === 100 ? 'Completed' : 'Processing...';
+            }
+        }
+
+        function completeStep(payload) {
+            const stepElement = document.getElementById(`step-${payload.step_id}`);
+            if (stepElement) {
+                const statusElement = stepElement.querySelector('.step-status');
+                statusElement.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-green-500 text-white';
+                statusElement.innerHTML = '✅';
+                
+                stepElement.querySelector('.status-text').textContent = 'Completed';
+                stepElement.className = 'flex items-center space-x-4 p-4 rounded-lg border border-green-200 bg-green-50';
+            }
+        }
+
+        function updateMetrics(metrics) {
+            elements.accuracyValue.textContent = `${(metrics.accuracy * 100).toFixed(1)}%`;
+            elements.lossValue.textContent = metrics.loss.toExponential(2);
+            elements.convergenceValue.textContent = `${(metrics.convergence * 100).toFixed(1)}%`;
+            elements.trainingTimeValue.textContent = `${metrics.trainingTime.toFixed(1)}s`;
+        }
+
+        async function startSimulation() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('❌ WebSocket not connected', 'error');
+                return;
+            }
+
+            try {
+                // Start a new PINN workflow
+                log('🚀 Starting new PINN simulation...', 'info');
+                
+                const response = await fetch('/api/v1/pinn/solve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: 'Real-time Golf Ball Aerodynamics',
+                        domain_type: 'fluid_dynamics',
+                        geometry: { type: 'circle', radius: 0.021 }
+                    })
+                });
+
+                const result = await response.json();
+                currentWorkflowId = result.workflow_id;
+                
+                log(`✅ Workflow started: ${currentWorkflowId}`, 'success');
+
+                // Subscribe to workflow updates
+                ws.send(JSON.stringify({
+                    type: 'subscribe_workflow',
+                    workflow_id: currentWorkflowId
+                }));
+
+                elements.startBtn.disabled = true;
+                elements.startBtn.innerHTML = '<span>⏳</span><span>Running...</span>';
+
+            } catch (error) {
+                log(`❌ Failed to start simulation: ${error.message}`, 'error');
+            }
+        }
+
+        // Event listeners
+        elements.connectBtn.addEventListener('click', connectWebSocket);
+        elements.startBtn.addEventListener('click', startSimulation);
+
+        // Initialize
+        elements.startBtn.disabled = true;
+        log('🌟 PINN Real-Time Demo Ready', 'success');
+        log('👆 Click "Connect WebSocket" to begin', 'info');
+    </script>
+</body>
+</html>

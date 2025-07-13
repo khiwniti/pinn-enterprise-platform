@@ -1,0 +1,21 @@
+🚀 Starting PINN Platform Demo Server...
+📍 Server will be available at: http://localhost:51736
+📚 API Documentation: http://localhost:51736/docs
+🔍 Health Check: http://localhost:51736/health
+🎨 Research Canvas UI: http://localhost:51736/ui
+⚡ Mode: Demo (lightweight, no ML dependencies)
+
+Press Ctrl+C to stop the server
+============================================================
+INFO:     Started server process [70992]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:51736 (Press CTRL+C to quit)
+/workspace/opensource-pinn-platform/start_server.py:132: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "timestamp": datetime.utcnow().isoformat(),
+INFO:     127.0.0.1:35928 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35612 - "GET /ui HTTP/1.1" 200 OK
+/workspace/opensource-pinn-platform/start_server.py:489: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  "created_at": datetime.utcnow().isoformat()
+INFO:     127.0.0.1:41948 - "POST /api/v2/simulations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41958 - "GET /api/v2/simulations/11052b36-30ea-4898-9ce6-b24fafde6b63/code HTTP/1.1" 200 OK

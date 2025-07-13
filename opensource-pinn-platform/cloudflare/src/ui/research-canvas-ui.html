@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PINN Enterprise Platform - Research Canvas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #F5F8FF;
+        }
+        
+        .simulation-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .simulation-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-initiated { background: #FEF3C7; color: #92400E; }
+        .status-processing { background: #DBEAFE; color: #1E40AF; }
+        .status-completed { background: #D1FAE5; color: #065F46; }
+        .status-failed { background: #FEE2E2; color: #991B1B; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #E5E7EB;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6766FC, #8B5CF6);
+            transition: width 0.3s ease;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .field-input {
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 12px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            font-weight: 300;
+            transition: all 0.3s ease;
+        }
+        
+        .field-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(103, 102, 252, 0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6766FC, #8B5CF6);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(103, 102, 252, 0.3);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #6766FC;
+            border: 2px solid #6766FC;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background: #6766FC;
+            color: white;
+        }
+        
+        .domain-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+        
+        .domain-card {
+            background: white;
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .domain-card:hover {
+            border-color: #6766FC;
+            transform: translateY(-2px);
+        }
+        
+        .domain-card.selected {
+            border-color: #6766FC;
+            background: #F8F9FF;
+        }
+        
+        .domain-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        
+        .code-preview {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .visualization-preview {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .visualization-preview:hover {
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="flex h-[60px] bg-[#0E103D] text-white items-center px-10 text-2xl font-medium">
+        🧮 PINN Enterprise Platform
+    </header>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 border" style="height: calc(100vh - 60px);">
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 overflow-hidden">
+            <div class="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
+                <div class="space-y-8 pb-10">
+                    
+                    <!-- Simulation Configuration Section -->
+                    <div class="simulation-card">
+                        <h2 class="text-lg font-medium mb-4 text-[#0E103D]">🚀 Create New Simulation</h2>
+                        
+                        <!-- Simulation Name -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Simulation Name</label>
+                            <input 
+                                type="text" 
+                                class="field-input" 
+                                placeholder="Enter simulation name (e.g., Golf Ball Aerodynamics)"
+                                id="simulation-name"
+                            />
+                        </div>
+                        
+                        <!-- Physics Domain Selection -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">Physics Domain</label>
+                            <div class="domain-selector">
+                                <div class="domain-card" data-domain="fluid_dynamics">
+                                    <div class="domain-icon">🌊</div>
+                                    <h3 class="font-semibold">Fluid Dynamics</h3>
+                                    <p class="text-sm text-gray-600 mt-1">CFD, Aerodynamics, Flow Analysis</p>
+                                </div>
+                                <div class="domain-card" data-domain="heat_transfer">
+                                    <div class="domain-icon">🔥</div>
+                                    <h3 class="font-semibold">Heat Transfer</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Thermal Analysis, Cooling Systems</p>
+                                </div>
+                                <div class="domain-card" data-domain="structural_mechanics">
+                                    <div class="domain-icon">🏗️</div>
+                                    <h3 class="font-semibold">Structural Mechanics</h3>
+                                    <p class="text-sm text-gray-600 mt-1">FEA, Stress Analysis, Vibrations</p>
+                                </div>
+                                <div class="domain-card" data-domain="electromagnetics">
+                                    <div class="domain-icon">⚡</div>
+                                    <h3 class="font-semibold">Electromagnetics</h3>
+                                    <p class="text-sm text-gray-600 mt-1">EM Fields, Antenna Design</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Application -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Engineering Application</label>
+                            <input 
+                                type="text" 
+                                class="field-input" 
+                                placeholder="Describe your engineering application"
+                                id="application"
+                            />
+                        </div>
+                        
+                        <!-- Complexity Level -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Complexity Level</label>
+                            <select class="field-input" id="complexity">
+                                <option value="basic">Basic - Simple geometry, linear physics</option>
+                                <option value="intermediate" selected>Intermediate - Moderate complexity</option>
+                                <option value="advanced">Advanced - Complex geometry, nonlinear physics</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Create Button -->
+                        <button class="btn-primary w-full" onclick="createSimulation()">
+                            🚀 Create Simulation with AI-Generated Code
+                        </button>
+                    </div>
+                    
+                    <!-- Active Simulations Section -->
+                    <div class="simulation-card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-medium text-[#0E103D]">📊 Active Simulations</h2>
+                            <button class="btn-secondary" onclick="refreshSimulations()">
+                                🔄 Refresh
+                            </button>
+                        </div>
+                        
+                        <div id="simulations-list" class="space-y-4">
+                            <!-- Simulations will be populated here -->
+                            <div class="text-center text-gray-500 py-8">
+                                No active simulations. Create one above to get started!
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Real-time Metrics -->
+                    <div class="simulation-card">
+                        <h2 class="text-lg font-medium mb-4 text-[#0E103D]">📈 Platform Metrics</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="metric-card">
+                                <div class="text-2xl font-bold" id="total-simulations">0</div>
+                                <div class="text-sm opacity-90">Total Simulations</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="text-2xl font-bold" id="active-workflows">0</div>
+                                <div class="text-sm opacity-90">Active Workflows</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="text-2xl font-bold" id="success-rate">99.5%</div>
+                                <div class="text-sm opacity-90">Success Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Generated Code Preview -->
+                    <div class="simulation-card" id="code-section" style="display: none;">
+                        <h2 class="text-lg font-medium mb-4 text-[#0E103D]">💻 AI-Generated Python Code</h2>
+                        <div class="code-preview" id="code-preview">
+                            <!-- Generated code will appear here -->
+                        </div>
+                        <div class="mt-4 flex gap-4">
+                            <button class="btn-primary" onclick="downloadCode()">
+                                📥 Download Code
+                            </button>
+                            <button class="btn-secondary" onclick="copyCode()">
+                                📋 Copy to Clipboard
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 3D Visualization Preview -->
+                    <div class="simulation-card" id="viz-section" style="display: none;">
+                        <h2 class="text-lg font-medium mb-4 text-[#0E103D]">🎨 3D Visualization</h2>
+                        <div class="visualization-preview" onclick="openFullVisualization()">
+                            <div class="text-center">
+                                <div class="text-4xl mb-2">🎮</div>
+                                <div>Click to open interactive 3D visualization</div>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex gap-4">
+                            <button class="btn-primary" onclick="exportVisualization()">
+                                📸 Export PNG
+                            </button>
+                            <button class="btn-secondary" onclick="exportSTL()">
+                                📦 Export STL
+                            </button>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <!-- CopilotKit-style Chat Sidebar -->
+        <div class="w-[500px] h-full flex-shrink-0 bg-[#E0E9FD] border-l">
+            <div class="h-full p-6 flex flex-col">
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold text-[#0E103D] mb-2">🤖 AI Research Assistant</h3>
+                    <p class="text-sm text-gray-600">Ask me about physics simulations, PINN theory, or engineering applications!</p>
+                </div>
+                
+                <!-- Chat Messages Container -->
+                <div class="flex-1 overflow-y-auto mb-4" id="chat-messages">
+                    <div class="bg-white rounded-lg p-4 mb-4 shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 bg-[#6766FC] rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                AI
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm text-gray-800">
+                                    Hi! I'm your PINN research assistant. I can help you with:
+                                </p>
+                                <ul class="text-sm text-gray-600 mt-2 space-y-1">
+                                    <li>• Physics-informed neural networks theory</li>
+                                    <li>• Engineering simulation best practices</li>
+                                    <li>• Domain-specific physics equations</li>
+                                    <li>• Boundary conditions and parameters</li>
+                                    <li>• Results interpretation and analysis</li>
+                                </ul>
+                                <p class="text-sm text-gray-800 mt-2">
+                                    What would you like to explore today?
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="flex gap-2">
+                    <input 
+                        type="text" 
+                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6766FC] focus:border-transparent"
+                        placeholder="Ask about PINN simulations..."
+                        id="chat-input"
+                        onkeypress="handleChatKeyPress(event)"
+                    />
+                    <button 
+                        class="btn-primary px-6"
+                        onclick="sendChatMessage()"
+                    >
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedDomain = null;
+        let currentWorkflowId = null;
+        let simulations = [];
+        
+        // API base URL - update this to your Cloudflare Workers URL
+        const API_BASE = 'https://api.ensimu.space';
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDomainSelection();
+            loadSimulations();
+            startMetricsUpdates();
+        });
+        
+        // Domain selection functionality
+        function initializeDomainSelection() {
+            const domainCards = document.querySelectorAll('.domain-card');
+            
+            domainCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // Remove selected class from all cards
+                    domainCards.forEach(c => c.classList.remove('selected'));
+                    
+                    // Add selected class to clicked card
+                    this.classList.add('selected');
+                    
+                    // Store selected domain
+                    selectedDomain = this.dataset.domain;
+                    
+                    // Update application suggestions based on domain
+                    updateApplicationSuggestions(selectedDomain);
+                });
+            });
+        }
+        
+        function updateApplicationSuggestions(domain) {
+            const applicationInput = document.getElementById('application');
+            const suggestions = {
+                'fluid_dynamics': 'Golf Ball Aerodynamics',
+                'heat_transfer': 'Electronic Component Cooling',
+                'structural_mechanics': 'Bridge Structural Analysis',
+                'electromagnetics': 'Antenna Design Optimization'
+            };
+            
+            applicationInput.placeholder = suggestions[domain] || 'Describe your engineering application';
+        }
+        
+        // Create simulation
+        async function createSimulation() {
+            const name = document.getElementById('simulation-name').value;
+            const application = document.getElementById('application').value;
+            const complexity = document.getElementById('complexity').value;
+            
+            if (!name || !application || !selectedDomain) {
+                alert('Please fill in all fields and select a physics domain');
+                return;
+            }
+            
+            const requestData = {
+                name: name,
+                description: `Professional ${selectedDomain.replace('_', ' ')} simulation for ${application}`,
+                domain_type: selectedDomain,
+                application: application,
+                complexity_level: complexity,
+                geometry: {
+                    type: selectedDomain === 'fluid_dynamics' ? 'sphere' : 'rectangle',
+                    radius: 0.021
+                },
+                physics_parameters: {
+                    reynolds_number: selectedDomain === 'fluid_dynamics' ? 110000 : undefined,
+                    thermal_conductivity: selectedDomain === 'heat_transfer' ? 1.0 : undefined
+                },
+                boundary_conditions: {
+                    inlet: { velocity: 45.0 }
+                },
+                priority: 'high',
+                tags: ['ai-generated', 'enterprise', selectedDomain]
+            };
+            
+            try {
+                showLoading('Creating simulation with AI-generated code...');
+                
+                const response = await fetch(`${API_BASE}/api/v2/simulations`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                currentWorkflowId = result.workflow_id;
+                
+                hideLoading();
+                
+                // Add to simulations list
+                addSimulationToList(result);
+                
+                // Load and display generated code
+                await loadGeneratedCode(currentWorkflowId);
+                
+                // Start monitoring workflow progress
+                startWorkflowMonitoring(currentWorkflowId);
+                
+                // Clear form
+                clearForm();
+                
+                // Show success message
+                addChatMessage('AI', `🎉 Simulation "${name}" created successfully! I've generated professional Python code using DeepXDE for your ${selectedDomain.replace('_', ' ')} analysis.`);
+                
+            } catch (error) {
+                hideLoading();
+                console.error('Error creating simulation:', error);
+                alert('Failed to create simulation. Please try again.');
+            }
+        }
+        
+        // Load generated Python code
+        async function loadGeneratedCode(workflowId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/v2/simulations/${workflowId}/code`);
+                const data = await response.json();
+                
+                document.getElementById('code-preview').textContent = data.python_code;
+                document.getElementById('code-section').style.display = 'block';
+                
+                // Scroll to code section
+                document.getElementById('code-section').scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error('Error loading code:', error);
+            }
+        }
+        
+        // Chat functionality
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+        
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addChatMessage('User', message);
+            
+            // Clear input
+            input.value = '';
+            
+            // Simulate AI response
+            setTimeout(() => {
+                const response = generateAIResponse(message);
+                addChatMessage('AI', response);
+            }, 1000);
+        }
+        
+        function addChatMessage(sender, message) {
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            const messageElement = document.createElement('div');
+            messageElement.className = 'bg-white rounded-lg p-4 mb-4 shadow-sm';
+            
+            const isUser = sender === 'User';
+            const avatar = isUser ? 'U' : 'AI';
+            const avatarBg = isUser ? 'bg-gray-500' : 'bg-[#6766FC]';
+            
+            messageElement.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-white text-sm font-bold">
+                        ${avatar}
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm text-gray-800">${message}</p>
+                    </div>
+                </div>
+            `;
+            
+            messagesContainer.appendChild(messageElement);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        function generateAIResponse(userMessage) {
+            const responses = {
+                'pinn': 'Physics-Informed Neural Networks (PINNs) are a powerful approach that incorporates physical laws directly into neural network training. They solve PDEs by minimizing both data loss and physics equation residuals.',
+                'navier': 'The Navier-Stokes equations describe fluid motion and consist of momentum conservation (∇·τ + ρf = ρa) and mass conservation (∇·v = 0 for incompressible flow). PINNs can solve these without traditional meshing.',
+                'heat': 'Heat transfer simulations using PINNs solve the heat equation: ∂T/∂t = α∇²T + Q. This includes conduction, convection, and radiation effects with appropriate boundary conditions.',
+                'boundary': 'Boundary conditions in PINNs are enforced as additional loss terms. Common types include Dirichlet (fixed values), Neumann (fixed gradients), and Robin (mixed) conditions.',
+                'accuracy': 'PINN accuracy depends on network architecture, training data, physics loss weighting, and domain complexity. Typical engineering accuracy ranges from 90-99% depending on the problem.',
+                'default': 'I can help you with PINN theory, physics equations, simulation setup, boundary conditions, and results interpretation. What specific aspect would you like to explore?'
+            };
+            
+            const lowerMessage = userMessage.toLowerCase();
+            
+            for (const [key, response] of Object.entries(responses)) {
+                if (lowerMessage.includes(key)) {
+                    return response;
+                }
+            }
+            
+            return responses.default;
+        }
+        
+        // Utility functions
+        function clearForm() {
+            document.getElementById('simulation-name').value = '';
+            document.getElementById('application').value = '';
+            document.getElementById('complexity').value = 'intermediate';
+            
+            // Clear domain selection
+            document.querySelectorAll('.domain-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            selectedDomain = null;
+        }
+        
+        function showLoading(message) {
+            console.log('Loading:', message);
+        }
+        
+        function hideLoading() {
+            console.log('Loading complete');
+        }
+        
+        function updateMetrics() {
+            document.getElementById('total-simulations').textContent = simulations.length;
+            document.getElementById('active-workflows').textContent = simulations.filter(s => s.status === 'processing').length;
+        }
+        
+        function startMetricsUpdates() {
+            setInterval(updateMetrics, 5000);
+        }
+        
+        // Simulation management functions
+        function addSimulationToList(simulation) {
+            const listContainer = document.getElementById('simulations-list');
+            
+            // Remove "no simulations" message
+            if (listContainer.children.length === 1 && listContainer.children[0].textContent.includes('No active simulations')) {
+                listContainer.innerHTML = '';
+            }
+            
+            const simulationElement = createSimulationElement(simulation);
+            listContainer.insertBefore(simulationElement, listContainer.firstChild);
+            
+            simulations.unshift(simulation);
+            updateMetrics();
+        }
+        
+        function createSimulationElement(simulation) {
+            const div = document.createElement('div');
+            div.className = 'bg-white rounded-lg p-4 border border-gray-200';
+            div.id = `simulation-${simulation.workflow_id}`;
+            
+            div.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-semibold text-gray-900">${simulation.name || 'Unnamed Simulation'}</h3>
+                        <p class="text-sm text-gray-600">${simulation.domain_type?.replace('_', ' ') || 'Unknown Domain'}</p>
+                    </div>
+                    <span class="status-badge status-${simulation.status}">${simulation.status}</span>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Progress</span>
+                        <span id="progress-${simulation.workflow_id}">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-bar-${simulation.workflow_id}" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button class="btn-secondary text-xs px-3 py-1" onclick="viewSimulation('${simulation.workflow_id}')">
+                        👁️ View
+                    </button>
+                    <button class="btn-secondary text-xs px-3 py-1" onclick="downloadSimulationCode('${simulation.workflow_id}')">
+                        💻 Code
+                    </button>
+                    <button class="btn-secondary text-xs px-3 py-1" onclick="openSimulationVisualization('${simulation.workflow_id}')">
+                        🎨 3D View
+                    </button>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        // Action handlers
+        function refreshSimulations() {
+            loadSimulations();
+        }
+        
+        async function loadSimulations() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v2/simulations`);
+                const data = await response.json();
+                
+                // Update simulations list
+                simulations = data.simulations || [];
+                updateMetrics();
+                
+            } catch (error) {
+                console.error('Error loading simulations:', error);
+            }
+        }
+        
+        function downloadCode() {
+            const code = document.getElementById('code-preview').textContent;
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pinn_simulation.py';
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
+        
+        function copyCode() {
+            const code = document.getElementById('code-preview').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Code copied to clipboard!');
+            });
+        }
+        
+        function openFullVisualization() {
+            if (currentWorkflowId) {
+                window.open(`${API_BASE}/api/v2/simulations/${currentWorkflowId}/visualization/html`, '_blank');
+            }
+        }
+        
+        function exportVisualization() {
+            alert('PNG export functionality would be implemented here');
+        }
+        
+        function exportSTL() {
+            alert('STL export functionality would be implemented here');
+        }
+        
+        function viewSimulation(workflowId) {
+            window.open(`${API_BASE}/api/v2/simulations/${workflowId}/status`, '_blank');
+        }
+        
+        function downloadSimulationCode(workflowId) {
+            window.open(`${API_BASE}/api/v2/simulations/${workflowId}/code`, '_blank');
+        }
+        
+        function openSimulationVisualization(workflowId) {
+            window.open(`${API_BASE}/api/v2/simulations/${workflowId}/visualization/html`, '_blank');
+        }
+        
+        function startWorkflowMonitoring(workflowId) {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/api/v2/simulations/${workflowId}/status`);
+                    const status = await response.json();
+                    
+                    updateSimulationStatus(workflowId, status);
+                    
+                    if (status.status === 'completed') {
+                        clearInterval(interval);
+                        await loadVisualization(workflowId);
+                        addChatMessage('AI', `✅ Simulation completed! Your 3D visualization is ready. The model achieved ${(status.metrics?.accuracy * 100 || 98).toFixed(1)}% accuracy.`);
+                    } else if (status.status === 'failed') {
+                        clearInterval(interval);
+                        addChatMessage('AI', `❌ Simulation failed: ${status.error || 'Unknown error'}`);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error monitoring workflow:', error);
+                }
+            }, 2000);
+        }
+        
+        function updateSimulationStatus(workflowId, status) {
+            const progressElement = document.getElementById(`progress-${workflowId}`);
+            const progressBarElement = document.getElementById(`progress-bar-${workflowId}`);
+            
+            if (progressElement && progressBarElement) {
+                const progress = status.progress || 0;
+                progressElement.textContent = `${progress.toFixed(1)}%`;
+                progressBarElement.style.width = `${progress}%`;
+            }
+            
+            // Update status badge
+            const simulationElement = document.getElementById(`simulation-${workflowId}`);
+            if (simulationElement) {
+                const statusBadge = simulationElement.querySelector('.status-badge');
+                if (statusBadge) {
+                    statusBadge.className = `status-badge status-${status.status}`;
+                    statusBadge.textContent = status.status;
+                }
+            }
+        }
+        
+        async function loadVisualization(workflowId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/v2/simulations/${workflowId}/visualization`);
+                const vizData = await response.json();
+                
+                document.getElementById('viz-section').style.display = 'block';
+                
+                // Update visualization preview
+                const preview = document.querySelector('.visualization-preview');
+                preview.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-4xl mb-2">🎨</div>
+                        <div>Interactive 3D Visualization Ready</div>
+                        <div class="text-sm opacity-75 mt-1">ID: ${vizData.visualization_id}</div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error loading visualization:', error);
+            }
+        }
+    </script>
+</body>
+</html>
