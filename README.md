@@ -1,8 +1,20 @@
-# Complete Serverless Backend Architecture for PINN with DeepXDE
+# 🧮 PINN Enterprise Platform
 
-## System Overview
+> **AI-Powered Physics Simulations with CopilotKit-style Research Canvas UI**
 
-A production-ready serverless architecture designed specifically for Physics-Informed Neural Networks using DeepXDE, featuring intelligent workload distribution, GPU acceleration, and seamless scaling for engineering simulation workflows.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](https://workers.cloudflare.com/)
+[![DeepXDE](https://img.shields.io/badge/DeepXDE-Physics-purple.svg)](https://deepxde.readthedocs.io/)
+
+A complete, production-ready enterprise platform for Physics-Informed Neural Networks (PINNs) featuring a CopilotKit-inspired research canvas UI, RAG-powered AI code generation, and global serverless deployment.
+
+## 🌟 **Live Demo**
+
+🎨 **Research Canvas UI**: [Try the Interactive Demo](http://localhost:51736/ui)  
+📚 **API Documentation**: [Explore the API](http://localhost:51736/docs)  
+🚀 **Production Deployment**: Coming soon at `api.ensimu.space`
 
 ## Architecture Principles
 
