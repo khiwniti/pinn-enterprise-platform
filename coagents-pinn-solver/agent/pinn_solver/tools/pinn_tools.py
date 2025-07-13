@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from pinn_solver.core.pinn_client import PINNClient, PINNProblemBuilder
+from pinn_solver.core.pinn_workflow import PINNWorkflow
 
 class SolvePINNProblemInput(BaseModel):
     """Input for solving a PINN problem"""
@@ -20,12 +21,15 @@ class SolvePINNProblemInput(BaseModel):
 class SolvePINNProblemTool(BaseTool):
     """Tool for solving physics problems using PINNs"""
     
-    name = "solve_pinn_problem"
-    description = "Solve a physics problem using Physics-Informed Neural Networks. Supports heat transfer, fluid dynamics, structural mechanics, and electromagnetics problems."
-    args_schema = SolvePINNProblemInput
+    name: str = "solve_pinn_problem"
+    description: str = "Solve a physics problem using Physics-Informed Neural Networks. Supports heat transfer, fluid dynamics, structural mechanics, and electromagnetics problems."
+    args_schema: type[BaseModel] = SolvePINNProblemInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+    problem_builder: PINNProblemBuilder
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
         self.problem_builder = PINNProblemBuilder()
     
@@ -75,12 +79,14 @@ class CheckWorkflowStatusInput(BaseModel):
 class CheckWorkflowStatusTool(BaseTool):
     """Tool for checking the status of a PINN workflow"""
     
-    name = "check_workflow_status"
-    description = "Check the status and progress of a PINN training workflow"
-    args_schema = CheckWorkflowStatusInput
+    name: str = "check_workflow_status"
+    description: str = "Check the status and progress of a PINN training workflow"
+    args_schema: type[BaseModel] = CheckWorkflowStatusInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
     
     def _run(self, workflow_id: str) -> str:
@@ -109,12 +115,14 @@ class GetPINNResultsInput(BaseModel):
 class GetPINNResultsTool(BaseTool):
     """Tool for retrieving PINN simulation results"""
     
-    name = "get_pinn_results"
-    description = "Retrieve the results of a completed PINN simulation"
-    args_schema = GetPINNResultsInput
+    name: str = "get_pinn_results"
+    description: str = "Retrieve the results of a completed PINN simulation"
+    args_schema: type[BaseModel] = GetPINNResultsInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
     
     def _run(self, workflow_id: str) -> str:
@@ -140,12 +148,14 @@ class RunPINNInferenceInput(BaseModel):
 class RunPINNInferenceTool(BaseTool):
     """Tool for running inference on a trained PINN model"""
     
-    name = "run_pinn_inference"
-    description = "Run inference on a trained PINN model at specified points"
-    args_schema = RunPINNInferenceInput
+    name: str = "run_pinn_inference"
+    description: str = "Run inference on a trained PINN model at specified points"
+    args_schema: type[BaseModel] = RunPINNInferenceInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
     
     def _run(self, workflow_id: str, input_points: List[List[float]]) -> str:
@@ -173,12 +183,14 @@ class VisualizePINNResultsInput(BaseModel):
 class VisualizePINNResultsTool(BaseTool):
     """Tool for creating visualizations of PINN results"""
     
-    name = "visualize_pinn_results"
-    description = "Create visualizations of PINN simulation results"
-    args_schema = VisualizePINNResultsInput
+    name: str = "visualize_pinn_results"
+    description: str = "Create visualizations of PINN simulation results"
+    args_schema: type[BaseModel] = VisualizePINNResultsInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
     
     def _run(self, workflow_id: str, visualization_type: str = "contour", resolution: int = 50) -> str:
@@ -246,12 +258,14 @@ class ListPINNWorkflowsInput(BaseModel):
 class ListPINNWorkflowsTool(BaseTool):
     """Tool for listing PINN workflows"""
     
-    name = "list_pinn_workflows"
-    description = "List recent PINN workflows and their status"
-    args_schema = ListPINNWorkflowsInput
+    name: str = "list_pinn_workflows"
+    description: str = "List recent PINN workflows and their status"
+    args_schema: type[BaseModel] = ListPINNWorkflowsInput
     
-    def __init__(self):
-        super().__init__()
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.client = PINNClient()
     
     def _run(self, limit: int = 10, status_filter: Optional[str] = None) -> str:
@@ -269,6 +283,51 @@ class ListPINNWorkflowsTool(BaseTool):
         except Exception as e:
             return f"Error listing workflows: {str(e)}"
 
+class DeepResearchPINNInput(BaseModel):
+    """Input for the Deep Research PINN tool"""
+    problem_description: str = Field(description="Detailed description of the physics problem for deep research")
+    domain_type: str = Field(description="Primary physics domain for the research")
+
+class DeepResearchPINNTool(BaseTool):
+    """Tool for conducting deep research and solving PINN problems"""
+
+    name: str = "deep_research_pinn"
+    description: str = "Conduct a deep research workflow for a physics problem, including formulation, model selection, training, and analysis."
+    args_schema: type[BaseModel] = DeepResearchPINNInput
+
+    client: PINNClient
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.client = PINNClient()
+
+    def _run(self, problem_description: str, domain_type: str) -> str:
+        """Execute the deep research workflow"""
+
+        try:
+            workflow = PINNWorkflow(problem_description, domain_type)
+
+            formulation_result = workflow.formulate_problem()
+            model_selection_result = workflow.select_model()
+            training_config_result = workflow.configure_training()
+
+            simulation_result = workflow.run_simulation(self.client)
+
+            workflow_id = workflow.simulation_result['workflow_id']
+            analysis = workflow.analyze_results(self.client, workflow_id)
+
+            return json.dumps({
+                "status": "completed",
+                "formulation": formulation_result,
+                "model_selection": model_selection_result,
+                "training_configuration": training_config_result,
+                "simulation_result": simulation_result,
+                "analysis": analysis
+            })
+
+        except Exception as e:
+            return f"Error in deep research workflow: {str(e)}"
+
 # Export all tools
 PINN_TOOLS = [
     SolvePINNProblemTool(),
@@ -276,5 +335,6 @@ PINN_TOOLS = [
     GetPINNResultsTool(),
     RunPINNInferenceTool(),
     VisualizePINNResultsTool(),
-    ListPINNWorkflowsTool()
+    ListPINNWorkflowsTool(),
+    DeepResearchPINNTool()
 ]

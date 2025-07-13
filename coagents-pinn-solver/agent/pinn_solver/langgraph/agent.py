@@ -166,14 +166,14 @@ graph = workflow.compile()
 
 # Example usage and testing
 if __name__ == "__main__":
-    # Test the agent
+    # Test the agent with the new deep research tool
     initial_state = PINNAgentState(
         messages=[
-            HumanMessage(content="I need to solve a 2D heat conduction problem. The left wall is at 100°C, right wall at 0°C, and top/bottom walls are insulated.")
+            HumanMessage(content="I want to conduct a deep research on a 2D heat conduction problem. The left wall is at 100°C, right wall at 0°C, and top/bottom walls are insulated.")
         ]
     )
     
-    print("Testing PINN Agent...")
+    print("Testing PINN Agent with Deep Research Workflow...")
     
     # Run the agent
     for step in graph.stream(initial_state):
