@@ -1,0 +1,59 @@
+name = "pinn-enterprise-platform"
+main = "src/index.js"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Account and Zone Configuration
+account_id = "5adf62efd6cf179a8939c211b155e229"
+zone_id = "11888a0ee8a4d631a3b430bd1b909674"
+
+# Workers Configuration
+workers_dev = true
+route = { pattern = "api.ensimu.space/*", zone_id = "11888a0ee8a4d631a3b430bd1b909674" }
+
+# Environment Variables
+[vars]
+ENVIRONMENT = "production"
+API_VERSION = "v2"
+CORS_ORIGIN = "*"
+
+# KV Namespaces for data storage
+[[kv_namespaces]]
+binding = "WORKFLOWS"
+id = "workflows_namespace"
+preview_id = "workflows_preview"
+
+[[kv_namespaces]]
+binding = "RESULTS"
+id = "results_namespace"
+preview_id = "results_preview"
+
+[[kv_namespaces]]
+binding = "USE_CASES"
+id = "use_cases_namespace"
+preview_id = "use_cases_preview"
+
+# R2 Buckets for file storage
+[[r2_buckets]]
+binding = "MODELS"
+bucket_name = "pinn-models"
+preview_bucket_name = "pinn-models-preview"
+
+[[r2_buckets]]
+binding = "VISUALIZATIONS"
+bucket_name = "pinn-visualizations"
+preview_bucket_name = "pinn-visualizations-preview"
+
+# Durable Objects for real-time features
+[[durable_objects.bindings]]
+name = "WEBSOCKET_MANAGER"
+class_name = "WebSocketManager"
+
+# Environment-specific configurations
+[env.production]
+name = "pinn-enterprise-platform"
+route = { pattern = "api.ensimu.space/*", zone_id = "11888a0ee8a4d631a3b430bd1b909674" }
+
+[env.staging]
+name = "pinn-enterprise-platform-staging"
+route = { pattern = "staging-api.ensimu.space/*", zone_id = "11888a0ee8a4d631a3b430bd1b909674" }

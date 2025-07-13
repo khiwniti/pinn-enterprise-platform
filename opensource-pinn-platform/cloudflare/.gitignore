@@ -1,0 +1,18 @@
+# Cloudflare Workers specific ignores
+node_modules/
+.wrangler/
+dist/
+*.log
+
+# Don't include Python files in Workers deployment
+*.py
+*.pyc
+__pycache__/
+requirements.txt
+venv/
+
+# Keep only JavaScript/TypeScript for Workers
+!src/**/*.js
+!src/**/*.ts
+!src/**/*.html
+!src/**/*.css

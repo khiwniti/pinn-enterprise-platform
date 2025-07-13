@@ -1,0 +1,30 @@
+{
+  "name": "pinn-enterprise-workers",
+  "version": "2.0.0",
+  "description": "PINN Enterprise Platform - Cloudflare Workers Deployment",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "echo 'Build complete - Workers ready'",
+    "test": "echo 'No tests specified' && exit 0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "wrangler": "^3.28.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "pinn",
+    "physics-simulation",
+    "serverless",
+    "copilotkit",
+    "research-canvas",
+    "ai-simulation"
+  ],
+  "author": "PINN Enterprise Platform",
+  "license": "MIT"
+}
