@@ -1,0 +1,159 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "TotalWorkflows24h"],
+                    [".", "CompletedWorkflows24h"],
+                    [".", "FailedWorkflows24h"],
+                    [".", "InProgressWorkflows"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "PINN Platform Workflow Statistics",
+                "period": 300,
+                "stat": "Sum"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 0,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "SuccessRate24h"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Success Rate (24h)",
+                "period": 300,
+                "stat": "Average",
+                "yAxis": {
+                    "left": {
+                        "min": 0,
+                        "max": 100
+                    }
+                }
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 6,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "TrainingTime", "Domain", "heat_transfer"],
+                    [".", ".", ".", "fluid_dynamics"],
+                    [".", ".", ".", "structural_mechanics"],
+                    [".", ".", ".", "electromagnetics"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Average Training Time by Domain",
+                "period": 300,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 8,
+            "y": 6,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "InferenceLatency"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Inference Latency",
+                "period": 60,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 16,
+            "y": 6,
+            "width": 8,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "ECSRunningTasks"],
+                    [".", "TrainingQueueDepth"],
+                    [".", "OptimalCapacity"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "ECS Capacity Management",
+                "period": 300,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "WorkflowsByDomain", "Domain", "heat_transfer"],
+                    [".", ".", ".", "fluid_dynamics"],
+                    [".", ".", ".", "structural_mechanics"],
+                    [".", ".", ".", "electromagnetics"]
+                ],
+                "view": "pie",
+                "region": "us-east-1",
+                "title": "Workflow Distribution by Domain",
+                "period": 86400,
+                "stat": "Sum"
+            }
+        },
+        {
+            "type": "metric",
+            "x": 12,
+            "y": 12,
+            "width": 12,
+            "height": 6,
+            "properties": {
+                "metrics": [
+                    ["PINNPlatform", "EstimatedDailyCost"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-east-1",
+                "title": "Estimated Daily Cost (USD)",
+                "period": 3600,
+                "stat": "Average"
+            }
+        },
+        {
+            "type": "log",
+            "x": 0,
+            "y": 18,
+            "width": 24,
+            "height": 6,
+            "properties": {
+                "query": "SOURCE '/aws/lambda/pinn-deepxde-platform-prod-api-coordinator'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+                "region": "us-east-1",
+                "title": "Recent Errors",
+                "view": "table"
+            }
+        }
+    ]
+}

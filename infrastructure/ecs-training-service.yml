@@ -1,0 +1,353 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS Fargate service for PINN training with GPU support'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: pinn-deepxde-platform
+  Environment:
+    Type: String
+    Default: prod
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for the ECS cluster
+  PrivateSubnetIds:
+    Type: CommaDelimitedList
+    Description: Private subnet IDs for ECS tasks
+  DynamoDBTableName:
+    Type: String
+    Description: DynamoDB table name for state management
+  S3ModelsBucketName:
+    Type: String
+    Description: S3 bucket name for model storage
+
+Resources:
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${ProjectName}-${Environment}-cluster"
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+        - CapacityProvider: FARGATE
+          Weight: 4
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+
+  # CloudWatch Log Group
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ProjectName}-pinn-training"
+      RetentionInDays: 14
+
+  # ECS Task Execution Role
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ECRAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: "*"
+
+  # ECS Task Role
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PINNTrainingTaskPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTableName}"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${S3ModelsBucketName}"
+                  - !Sub "arn:aws:s3:::${S3ModelsBucketName}/*"
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
+  # Security Group for ECS Tasks
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for PINN training ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecs-sg"
+
+  # Task Definition for PINN Training
+  PINNTrainingTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${ProjectName}-pinn-training"
+      Cpu: 4096  # 4 vCPU
+      Memory: 16384  # 16 GB
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref ECSExecutionRole
+      TaskRoleArn: !Ref ECSTaskRole
+      ContainerDefinitions:
+        - Name: pinn-trainer
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pinn-trainer:latest"
+          Essential: true
+          Memory: 16384
+          Cpu: 4096
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudWatchLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: pinn-training
+          Environment:
+            - Name: PYTHONPATH
+              Value: /app
+            - Name: CUDA_VISIBLE_DEVICES
+              Value: "0"
+            - Name: TF_FORCE_GPU_ALLOW_GROWTH
+              Value: "true"
+            - Name: DYNAMODB_TABLE
+              Value: !Ref DynamoDBTableName
+            - Name: S3_MODELS_BUCKET
+              Value: !Ref S3ModelsBucketName
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref AWS::Region
+
+  # ECS Service for PINN Training
+  PINNTrainingService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub "${ProjectName}-pinn-training"
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref PINNTrainingTaskDefinition
+      DesiredCount: 0  # Scale based on demand
+      LaunchType: FARGATE
+      PlatformVersion: "1.4.0"
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          Subnets: !Ref PrivateSubnetIds
+          AssignPublicIp: DISABLED
+      Tags:
+        - Key: Service
+          Value: PINN-Training
+
+  # Auto Scaling Target
+  PINNTrainingScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: 0
+      ResourceId: !Sub "service/${ECSCluster}/${PINNTrainingService}"
+      RoleARN: !Sub "arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService"
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  # Lambda Execution Role for Task Trigger
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ECSTaskTriggerPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:DescribeTasks
+                  - ecs:StopTask
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !Ref ECSExecutionRole
+                  - !Ref ECSTaskRole
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: "*"
+
+  # Lambda function to trigger ECS tasks
+  TrainingTaskTrigger:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-training-trigger"
+      Runtime: python3.9
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          ECS_CLUSTER: !Ref ECSCluster
+          TASK_DEFINITION: !Ref PINNTrainingTaskDefinition
+          SUBNET_IDS: !Join [",", !Ref PrivateSubnetIds]
+          SECURITY_GROUP: !Ref ECSSecurityGroup
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          
+          ecs = boto3.client('ecs')
+          
+          def handler(event, context):
+              for record in event['Records']:
+                  message = json.loads(record['body'])
+                  workflow_id = message['workflow_id']
+                  
+                  # Start ECS task
+                  response = ecs.run_task(
+                      cluster=os.environ['ECS_CLUSTER'],
+                      taskDefinition=os.environ['TASK_DEFINITION'],
+                      launchType='FARGATE',
+                      networkConfiguration={
+                          'awsvpcConfiguration': {
+                              'subnets': os.environ['SUBNET_IDS'].split(','),
+                              'securityGroups': [os.environ['SECURITY_GROUP']],
+                              'assignPublicIp': 'DISABLED'
+                          }
+                      },
+                      overrides={
+                          'containerOverrides': [
+                              {
+                                  'name': 'pinn-trainer',
+                                  'command': ['python3', 'app.py', workflow_id]
+                              }
+                          ]
+                      },
+                      tags=[
+                          {
+                              'key': 'WorkflowId',
+                              'value': workflow_id
+                          }
+                      ]
+                  )
+                  
+                  print(f"Started training task for workflow {workflow_id}: {response['tasks'][0]['taskArn']}")
+              
+              return {'statusCode': 200}
+
+  # ECR Repository for PINN Trainer Image
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: pinn-trainer
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  ECSClusterName:
+    Description: Name of the ECS cluster
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-cluster-name"
+      
+  ECSClusterArn:
+    Description: ARN of the ECS cluster
+    Value: !GetAtt ECSCluster.Arn
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-cluster-arn"
+      
+  TaskDefinitionArn:
+    Description: ARN of the task definition
+    Value: !Ref PINNTrainingTaskDefinition
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-task-definition-arn"
+      
+  ECRRepositoryURI:
+    Description: URI of the ECR repository
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepository}"
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ecr-uri"
+      
+  SecurityGroupId:
+    Description: Security Group ID for ECS tasks
+    Value: !Ref ECSSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-${Environment}-ecs-sg-id"

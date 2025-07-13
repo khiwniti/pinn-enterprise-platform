@@ -1,0 +1,263 @@
+service: pinn-deepxde-platform
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  timeout: 900
+  memory: 3008
+  
+  environment:
+    STAGE: ${self:provider.stage}
+    DYNAMODB_TABLE: ${self:service}-${self:provider.stage}-state
+    S3_MODELS_BUCKET: ${self:service}-${self:provider.stage}-models
+    SQS_TRAINING_QUEUE: ${self:service}-${self:provider.stage}-training
+    SQS_INFERENCE_QUEUE: ${self:service}-${self:provider.stage}-inference
+    SQS_ANALYSIS_QUEUE: ${self:service}-${self:provider.stage}-analysis
+    
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+            - s3:*
+            - sqs:*
+            - ecs:*
+            - batch:*
+            - sagemaker:*
+            - cloudwatch:*
+            - logs:*
+          Resource: "*"
+
+functions:
+  # Main API Gateway Handler
+  api-coordinator:
+    handler: handlers/api_coordinator.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+    environment:
+      CORS_ORIGIN: "*"
+      
+  # PINN Problem Analysis
+  pinn-problem-analyzer:
+    handler: handlers/pinn_analyzer.handler
+    timeout: 300
+    memory: 1024
+    events:
+      - sqs:
+          arn: !GetAtt ProblemAnalysisQueue.Arn
+          batchSize: 1
+          
+  # Model Training Coordinator  
+  training-coordinator:
+    handler: handlers/training_coordinator.handler
+    timeout: 900
+    memory: 512
+    events:
+      - sqs:
+          arn: !GetAtt TrainingQueue.Arn
+          batchSize: 1
+          
+  # Fast Inference Handler
+  inference-handler:
+    handler: handlers/inference_handler.handler
+    timeout: 300
+    memory: 3008
+    events:
+      - sqs:
+          arn: !GetAtt InferenceQueue.Arn
+          batchSize: 5
+    layers:
+      - !Ref ScientificComputingLambdaLayer
+      - !Ref DeepXDELambdaLayer
+
+  # Resource Optimizer
+  resource-optimizer:
+    handler: handlers/resource_optimizer.handler
+    timeout: 300
+    memory: 512
+    events:
+      - schedule: rate(5 minutes)
+
+plugins:
+  - serverless-python-requirements
+  - serverless-plugin-warmup
+  - serverless-plugin-split-stacks
+  - serverless-domain-manager
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer: true
+    slim: true
+    strip: false
+  
+  warmup:
+    enabled: true
+    events:
+      - schedule: rate(5 minutes)
+    timeout: 20
+
+resources:
+  Resources:
+    # DynamoDB Table for State Management
+    StateTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: workflow_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: workflow_id
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        StreamSpecification:
+          StreamViewType: NEW_AND_OLD_IMAGES
+
+    # S3 Bucket for Model Storage
+    ModelsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.S3_MODELS_BUCKET}
+        VersioningConfiguration:
+          Status: Enabled
+        LifecycleConfiguration:
+          Rules:
+            - Id: DeleteOldVersions
+              Status: Enabled
+              NoncurrentVersionExpirationInDays: 30
+            - Id: DeleteOldModels
+              Status: Enabled
+              ExpirationInDays: 90
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+
+    # SQS Queues
+    ProblemAnalysisQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_ANALYSIS_QUEUE}
+        VisibilityTimeoutSeconds: 1800
+        MessageRetentionPeriod: 1209600
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt AnalysisDLQ.Arn
+          maxReceiveCount: 3
+
+    TrainingQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_TRAINING_QUEUE}
+        VisibilityTimeoutSeconds: 7200
+        MessageRetentionPeriod: 1209600
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt TrainingDLQ.Arn
+          maxReceiveCount: 3
+
+    InferenceQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_INFERENCE_QUEUE}
+        VisibilityTimeoutSeconds: 300
+        MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt InferenceDLQ.Arn
+          maxReceiveCount: 3
+
+    # Dead Letter Queues
+    AnalysisDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_ANALYSIS_QUEUE}-dlq
+        MessageRetentionPeriod: 1209600
+
+    TrainingDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_TRAINING_QUEUE}-dlq
+        MessageRetentionPeriod: 1209600
+
+    InferenceDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.environment.SQS_INFERENCE_QUEUE}-dlq
+        MessageRetentionPeriod: 1209600
+
+    # Lambda Layers
+    ScientificComputingLambdaLayer:
+      Type: AWS::Lambda::LayerVersion
+      Properties:
+        LayerName: ${self:service}-${self:provider.stage}-scientific-computing
+        Description: Scientific computing libraries (numpy, scipy, tensorflow)
+        Content:
+          S3Bucket: ${self:provider.environment.S3_MODELS_BUCKET}
+          S3Key: layers/scientific-computing.zip
+        CompatibleRuntimes:
+          - python3.9
+
+    DeepXDELambdaLayer:
+      Type: AWS::Lambda::LayerVersion
+      Properties:
+        LayerName: ${self:service}-${self:provider.stage}-deepxde
+        Description: DeepXDE library for PINN
+        Content:
+          S3Bucket: ${self:provider.environment.S3_MODELS_BUCKET}
+          S3Key: layers/deepxde.zip
+        CompatibleRuntimes:
+          - python3.9
+
+    # CloudWatch Log Groups
+    ApiCoordinatorLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}-api-coordinator
+        RetentionInDays: 14
+
+    PinnAnalyzerLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}-pinn-problem-analyzer
+        RetentionInDays: 14
+
+    TrainingCoordinatorLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}-training-coordinator
+        RetentionInDays: 14
+
+    InferenceHandlerLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}-inference-handler
+        RetentionInDays: 14
+
+  Outputs:
+    ApiGatewayRestApiId:
+      Value: !Ref ApiGatewayRestApi
+      Export:
+        Name: ${self:service}-${self:provider.stage}-api-id
+
+    ApiGatewayRestApiRootResourceId:
+      Value: !GetAtt ApiGatewayRestApi.RootResourceId
+      Export:
+        Name: ${self:service}-${self:provider.stage}-api-root-id
+
+    StateTableName:
+      Value: !Ref StateTable
+      Export:
+        Name: ${self:service}-${self:provider.stage}-state-table
+
+    ModelsBucketName:
+      Value: !Ref ModelsBucket
+      Export:
+        Name: ${self:service}-${self:provider.stage}-models-bucket

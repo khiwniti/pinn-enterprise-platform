@@ -1,0 +1,46 @@
+{
+  "name": "pinn-deepxde-platform",
+  "version": "1.0.0",
+  "description": "Complete Serverless Backend Architecture for PINN with DeepXDE",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "serverless deploy",
+    "deploy:prod": "serverless deploy --stage prod",
+    "deploy:dev": "serverless deploy --stage dev",
+    "remove": "serverless remove",
+    "logs": "serverless logs -f api-coordinator -t",
+    "test": "pytest tests/",
+    "lint": "flake8 handlers/ tests/",
+    "format": "black handlers/ tests/",
+    "build-layers": "./scripts/build-layers.sh",
+    "deploy-containers": "./scripts/deploy-containers.sh",
+    "deploy-infrastructure": "./scripts/deploy-infrastructure.sh"
+  },
+  "keywords": [
+    "serverless",
+    "pinn",
+    "deepxde",
+    "physics-informed-neural-networks",
+    "aws",
+    "lambda",
+    "ecs",
+    "machine-learning"
+  ],
+  "author": "OpenHands AI",
+  "license": "MIT",
+  "devDependencies": {
+    "serverless": "^3.38.0",
+    "serverless-python-requirements": "^6.0.0",
+    "serverless-plugin-warmup": "^8.2.1",
+    "serverless-plugin-split-stacks": "^1.11.3",
+    "serverless-domain-manager": "^7.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CopilotKit/CopilotKit/issues"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit#readme"
+}

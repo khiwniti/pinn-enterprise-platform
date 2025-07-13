@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "pinn_solver": "./pinn_solver/langgraph/agent.py:graph"
+  },
+  "env": ".env"
+}
